@@ -7,7 +7,7 @@ import ring_doorbell
 
 from homeassistant import config_entries
 from homeassistant.components import dhcp
-from homeassistant.components.ring import DOMAIN
+from homeassistant.components.ring import CONF_LIVE_STREAM, DOMAIN
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -298,3 +298,42 @@ async def test_dhcp_discovery(
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_options_flow(
+    hass: HomeAssistant,
+    mock_added_config_entry: MockConfigEntry,
+) -> None:
+    """Test config flow options."""
+    assert mock_added_config_entry.options == {}
+    assert mock_added_config_entry.runtime_data.live_stream is True
+
+    # Set the option to False
+    result = await hass.config_entries.options.async_init(
+        mock_added_config_entry.entry_id
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={CONF_LIVE_STREAM: False}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert CONF_LIVE_STREAM in mock_added_config_entry.options
+    assert mock_added_config_entry.options[CONF_LIVE_STREAM] is False
+    assert mock_added_config_entry.runtime_data.live_stream is False
+
+    # Set the option back to True
+    result = await hass.config_entries.options.async_init(
+        mock_added_config_entry.entry_id
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={CONF_LIVE_STREAM: True}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert CONF_LIVE_STREAM in mock_added_config_entry.options
+    assert mock_added_config_entry.options[CONF_LIVE_STREAM] is True
+    assert mock_added_config_entry.runtime_data.live_stream is True

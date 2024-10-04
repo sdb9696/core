@@ -41,9 +41,15 @@ async def async_setup_entry(
     ring_data = entry.runtime_data
     devices_coordinator = ring_data.devices_coordinator
     ffmpeg_manager = ffmpeg.get_ffmpeg_manager(hass)
+    live_stream = ring_data.live_stream
 
     cams = [
-        RingCam(camera, devices_coordinator, ffmpeg_manager)
+        RingCam(
+            camera,
+            devices_coordinator,
+            ffmpeg_manager=ffmpeg_manager,
+            live_stream=live_stream,
+        )
         for camera in ring_data.devices.video_devices
         if camera.has_subscription
     ]
@@ -60,7 +66,9 @@ class RingCam(RingEntity[RingDoorBell], Camera):
         self,
         device: RingDoorBell,
         coordinator: RingDataCoordinator,
+        *,
         ffmpeg_manager: ffmpeg.FFmpegManager,
+        live_stream: bool,
     ) -> None:
         """Initialize a Ring Door Bell camera."""
         super().__init__(device, coordinator)
@@ -74,8 +82,9 @@ class RingCam(RingEntity[RingDoorBell], Camera):
         self._attr_unique_id = str(device.id)
         if device.has_capability(MOTION_DETECTION_CAPABILITY):
             self._attr_motion_detection_enabled = device.motion_detection
-        self._attr_supported_features |= CameraEntityFeature.STREAM
-        self._attr_frontend_stream_type = StreamType.WEB_RTC
+        if live_stream:
+            self._attr_supported_features |= CameraEntityFeature.STREAM
+            self._attr_frontend_stream_type = StreamType.WEB_RTC
 
     @callback
     def _handle_coordinator_update(self) -> None:
