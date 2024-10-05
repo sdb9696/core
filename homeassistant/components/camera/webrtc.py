@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field
-from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Any, Protocol
 
 from mashumaro import field_options
@@ -75,18 +74,10 @@ class WebRTCClientConfiguration(_RTCBaseModel):
     Not part of the spec, but required to configure client.
     """
 
-    class TransportDirection(StrEnum):
-        """Transport direction enum."""
-
-        RECVONLY = auto()
-        SENDONLY = auto()
-        SENDRECV = auto()
-
     configuration: RTCConfiguration = field(default_factory=RTCConfiguration)
     data_channel: str | None = field(
         metadata=field_options(alias="dataChannel"), default=None
     )
-    audio_direction: TransportDirection = TransportDirection.RECVONLY
 
 
 class CameraWebRTCProvider(Protocol):

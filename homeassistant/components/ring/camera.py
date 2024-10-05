@@ -11,12 +11,7 @@ from haffmpeg.camera import CameraMjpeg
 from ring_doorbell import RingDoorBell
 
 from homeassistant.components import ffmpeg
-from homeassistant.components.camera import (
-    Camera,
-    CameraEntityFeature,
-    StreamType,
-    WebRTCClientConfiguration,
-)
+from homeassistant.components.camera import Camera, CameraEntityFeature, StreamType
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_aiohttp_proxy_stream
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -155,12 +150,6 @@ class RingCam(RingEntity[RingDoorBell], Camera):
     async def async_handle_web_rtc_offer(self, offer_sdp: str) -> str | None:
         """Return the source of the stream."""
         return await self._device.generate_webrtc_stream(offer_sdp)
-
-    async def _async_get_webrtc_client_configuration(self) -> WebRTCClientConfiguration:
-        """Return the WebRTC client configuration."""
-        return WebRTCClientConfiguration(
-            audio_direction=WebRTCClientConfiguration.TransportDirection.SENDRECV,
-        )
 
     async def async_update(self) -> None:
         """Update camera entity and refresh attributes."""
