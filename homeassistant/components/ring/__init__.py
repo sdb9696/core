@@ -19,13 +19,7 @@ from homeassistant.helpers import (
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import (
-    CONF_LISTEN_CREDENTIALS,
-    CONF_LIVE_STREAM,
-    DEFAULT_LIVE_STREAM,
-    DOMAIN,
-    PLATFORMS,
-)
+from .const import CONF_LISTEN_CREDENTIALS, DOMAIN, PLATFORMS
 from .coordinator import RingDataCoordinator, RingListenCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +33,6 @@ class RingData:
     devices: RingDevices
     devices_coordinator: RingDataCoordinator
     listen_coordinator: RingListenCoordinator
-    live_stream: bool
 
 
 type RingConfigEntry = ConfigEntry[RingData]
@@ -97,29 +90,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: RingConfigEntry) -> bool
 
     await devices_coordinator.async_config_entry_first_refresh()
 
-    live_stream = entry.options.get(CONF_LIVE_STREAM, DEFAULT_LIVE_STREAM)
-
     entry.runtime_data = RingData(
         api=ring,
         devices=ring.devices(),
         devices_coordinator=devices_coordinator,
         listen_coordinator=listen_coordinator,
-        live_stream=live_stream,
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    entry.async_on_unload(entry.add_update_listener(update_listener))
-
     return True
-
-
-async def update_listener(hass: HomeAssistant, entry: RingConfigEntry) -> None:
-    """Handle options update."""
-    if entry.runtime_data.live_stream != entry.options.get(
-        CONF_LIVE_STREAM, DEFAULT_LIVE_STREAM
-    ):
-        await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

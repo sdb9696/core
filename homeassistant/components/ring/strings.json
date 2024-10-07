@@ -31,15 +31,6 @@
       "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "data": {
-          "live_stream": "Open camera with live stream"
-        }
-      }
-    }
-  },
   "entity": {
     "binary_sensor": {
       "ding": {

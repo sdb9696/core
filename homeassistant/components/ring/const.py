@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Final
 
 from homeassistant.const import Platform
 
@@ -32,5 +31,3 @@ SCAN_INTERVAL = timedelta(minutes=1)
 
 CONF_2FA = "2fa"
 CONF_LISTEN_CREDENTIALS = "listen_token"
-CONF_LIVE_STREAM = "live_stream"
-DEFAULT_LIVE_STREAM: Final[bool] = True

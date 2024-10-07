@@ -8,21 +8,15 @@ from ring_doorbell import Auth, AuthenticationError, Requires2FAError
 import voluptuous as vol
 
 from homeassistant.components import dhcp
-from homeassistant.config_entries import (
-    ConfigEntry,
-    ConfigFlow,
-    ConfigFlowResult,
-    OptionsFlow,
-)
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_PASSWORD, CONF_TOKEN, CONF_USERNAME
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.device_registry as dr
-from homeassistant.helpers.selector import BooleanSelector
 
 from . import get_auth_agent_id
-from .const import CONF_2FA, CONF_LIVE_STREAM, DEFAULT_LIVE_STREAM, DOMAIN
+from .const import CONF_2FA, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,11 +24,6 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {vol.Required(CONF_USERNAME): str, vol.Required(CONF_PASSWORD): str}
 )
 STEP_REAUTH_DATA_SCHEMA = vol.Schema({vol.Required(CONF_PASSWORD): str})
-OPTIONS_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_LIVE_STREAM, default=DEFAULT_LIVE_STREAM): BooleanSelector(),
-    }
-)
 
 UNKNOWN_RING_ACCOUNT = "unknown_ring_account"
 
@@ -182,34 +171,6 @@ class RingConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 CONF_USERNAME: self.reauth_entry.data[CONF_USERNAME]
             },
-        )
-
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        """Create the options flow."""
-        return OptionsFlowHandler(config_entry)
-
-
-class OptionsFlowHandler(OptionsFlow):
-    """Handle an option flow for jellyfin."""
-
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Manage the options."""
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=self.add_suggested_values_to_schema(
-                OPTIONS_DATA_SCHEMA, self.config_entry.options
-            ),
         )
 
 
