@@ -64,7 +64,7 @@ class RingCam(RingEntity[RingDoorBell], Camera):
         self._last_event: dict[str, Any] | None = None
         self._last_video_id: int | None = None
         self._video_url: str | None = None
-        self._image: bytes | None = None
+        self._images: dict[tuple[int | None, int | None], bytes] = {}
         self._expires_at = dt_util.utcnow() - FORCE_REFRESH_INTERVAL
         self._attr_unique_id = str(device.id)
         if device.has_capability(MOTION_DETECTION_CAPABILITY):
@@ -88,7 +88,7 @@ class RingCam(RingEntity[RingDoorBell], Camera):
             self._last_event = None
             self._last_video_id = None
             self._video_url = None
-            self._image = None
+            self._images = {}
             self._expires_at = dt_util.utcnow()
             self.async_write_ha_state()
 
@@ -104,7 +104,8 @@ class RingCam(RingEntity[RingDoorBell], Camera):
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
         """Return a still image response from the camera."""
-        if self._image is None and self._video_url is not None:
+        key = (width, height)
+        if not (image := self._images.get(key)) and self._video_url is not None:
             image = await ffmpeg.async_get_image(
                 self.hass,
                 self._video_url,
@@ -113,9 +114,9 @@ class RingCam(RingEntity[RingDoorBell], Camera):
             )
 
             if image:
-                self._image = image
+                self._images[key] = image
 
-        return self._image
+        return image
 
     async def handle_async_mjpeg_stream(
         self, request: web.Request
@@ -163,7 +164,7 @@ class RingCam(RingEntity[RingDoorBell], Camera):
             return
 
         if self._last_video_id != self._last_event["id"]:
-            self._image = None
+            self._images = {}
 
         self._video_url = await self._async_get_video()
 
