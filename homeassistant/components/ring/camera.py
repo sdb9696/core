@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import timedelta
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic
 
 from aiohttp import web
 from haffmpeg.camera import CameraMjpeg
 from ring_doorbell import RingDoorBell
 
 from homeassistant.components import ffmpeg
-from homeassistant.components.camera import Camera, CameraEntityFeature, StreamType
+from homeassistant.components.camera import (
+    Camera,
+    CameraEntityDescription,
+    CameraEntityFeature,
+    StreamType,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_aiohttp_proxy_stream
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -19,12 +26,40 @@ from homeassistant.util import dt as dt_util
 
 from . import RingConfigEntry
 from .coordinator import RingDataCoordinator
-from .entity import RingEntity, exception_wrap
+from .entity import RingDeviceT, RingEntity, exception_wrap
 
 FORCE_REFRESH_INTERVAL = timedelta(minutes=3)
 MOTION_DETECTION_CAPABILITY = "motion_detection"
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, kw_only=True)
+class RingCameraEntityDescription(CameraEntityDescription, Generic[RingDeviceT]):
+    """Base class for event entity description."""
+
+    exists_fn: Callable[[RingDoorBell], bool]
+    live_stream: bool
+    motion_detection: bool
+
+
+CAMERA_DESCRIPTIONS: tuple[RingCameraEntityDescription, ...] = (
+    RingCameraEntityDescription(
+        key="live_view",
+        translation_key="live_view",
+        exists_fn=lambda _: True,
+        live_stream=True,
+        motion_detection=False,
+    ),
+    RingCameraEntityDescription(
+        key="last_recording",
+        translation_key="last_recording",
+        entity_registry_enabled_default=False,
+        exists_fn=lambda camera: camera.has_subscription,
+        live_stream=False,
+        motion_detection=True,
+    ),
+)
 
 
 async def async_setup_entry(
@@ -38,9 +73,10 @@ async def async_setup_entry(
     ffmpeg_manager = ffmpeg.get_ffmpeg_manager(hass)
 
     cams = [
-        RingCam(camera, devices_coordinator, ffmpeg_manager)
+        RingCam(camera, devices_coordinator, description, ffmpeg_manager=ffmpeg_manager)
+        for description in CAMERA_DESCRIPTIONS
         for camera in ring_data.devices.video_devices
-        if camera.has_subscription
+        if description.exists_fn(camera)
     ]
 
     async_add_entities(cams)
@@ -49,16 +85,17 @@ async def async_setup_entry(
 class RingCam(RingEntity[RingDoorBell], Camera):
     """An implementation of a Ring Door Bell camera."""
 
-    _attr_name = None
-
     def __init__(
         self,
         device: RingDoorBell,
         coordinator: RingDataCoordinator,
+        description: RingCameraEntityDescription,
+        *,
         ffmpeg_manager: ffmpeg.FFmpegManager,
     ) -> None:
         """Initialize a Ring Door Bell camera."""
         super().__init__(device, coordinator)
+        self.entity_description = description
         Camera.__init__(self)
         self._ffmpeg_manager = ffmpeg_manager
         self._last_event: dict[str, Any] | None = None
@@ -66,11 +103,14 @@ class RingCam(RingEntity[RingDoorBell], Camera):
         self._video_url: str | None = None
         self._images: dict[tuple[int | None, int | None], bytes] = {}
         self._expires_at = dt_util.utcnow() - FORCE_REFRESH_INTERVAL
-        self._attr_unique_id = str(device.id)
-        if device.has_capability(MOTION_DETECTION_CAPABILITY):
+        self._attr_unique_id = f"{device.id}-{description.key}"
+        if description.motion_detection and device.has_capability(
+            MOTION_DETECTION_CAPABILITY
+        ):
             self._attr_motion_detection_enabled = device.motion_detection
-        self._attr_supported_features |= CameraEntityFeature.STREAM
-        self._attr_frontend_stream_type = StreamType.WEB_RTC
+        if description.live_stream:
+            self._attr_supported_features |= CameraEntityFeature.STREAM
+            self._attr_frontend_stream_type = StreamType.WEB_RTC
 
     @callback
     def _handle_coordinator_update(self) -> None:
